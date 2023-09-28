@@ -1,13 +1,14 @@
 mod event_loop;
+mod shared_context;
+mod task;
 mod waker;
 
 use event_loop::SingleThreadEventLoop;
-use std::fs::File;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU16, AtomicUsize};
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use std::task::Context;
 use std::task::Poll;
@@ -135,7 +136,7 @@ impl Future for MultipleWakerFuture {
 
 fn main() {
     SingleThreadEventLoop::new().run(async {
-        SingleThreadEventLoop::schedule(async {
+        event_loop::schedule(async {
             for _ in 0..2 {
                 println!("iter2");
                 let ff = MyFut { i: 0 };
@@ -146,6 +147,8 @@ fn main() {
         let f = ThreadReadWholeFile::new(PathBuf::from_str("./Cargo.toml").unwrap());
 
         let res = f.await;
+
+        println!("File read {:?}", res);
 
         let f2 = MultipleWakerFuture {
             counter: Default::default(),

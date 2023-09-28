@@ -1,58 +1,32 @@
+use crate::shared_context::SharedContext;
 use std::{
-    sync::{Arc, Mutex},
+    sync::Arc,
     task::{RawWaker, RawWakerVTable, Waker},
 };
 
-use crate::event_loop::SingleThreadEventLoop;
-
 pub struct WakerContext {
-    event_loop: Arc<Mutex<SingleThreadEventLoop>>,
     task_id: usize,
-    cloned: usize,
+    shared_ctx: Arc<SharedContext>,
 }
 
 impl WakerContext {
-    pub fn new(event_loop: Arc<Mutex<SingleThreadEventLoop>>, task_id: usize) -> Self {
+    pub fn new(shared_ctx: Arc<SharedContext>, task_id: usize) -> Self {
         Self {
-            event_loop,
+            shared_ctx,
             task_id,
-            cloned: 0,
         }
     }
 
     fn wake_up(&self) {
-        println!("wake");
-        self.event_loop
-            .lock()
-            .unwrap()
-            .notify_task_ready(self.task_id);
+        self.shared_ctx.wake_task(self.task_id);
     }
-
-    // fn get_next_task_id(&self) -> usize {
-    //     self.tasks_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    // }
-
-    // fn queue_task(&self, task: Task) {
-    //     let task_id = task.id;
-
-    //     let mut tasks = self.tasks.lock().unwrap();
-
-    //     tasks.0.insert(task_id, task);
-    //     tasks.1.push_back(task_id);
-    // }
 }
 
-static WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
-    |data| waker_clone(data),
-    |data| waker_wake(data),
-    |data| waker_wake_by_ref(data),
-    |data| waker_drop(data),
-);
+static WAKER_VTABLE: RawWakerVTable =
+    RawWakerVTable::new(waker_clone, waker_wake, waker_wake_by_ref, waker_drop);
 
 fn waker_clone(data: *const ()) -> RawWaker {
-    let ctx = unsafe { &*(data as *const WakerContext) };
-
-
+    // let ctx = unsafe { &*(data as *const WakerContext) };
 
     RawWaker::new(data, &WAKER_VTABLE)
 }
@@ -62,7 +36,6 @@ fn waker_wake(data: *const ()) {
     ctx.wake_up();
 }
 
-/// Функция для вызова обработчика готовности задачи по ссылке.
 fn waker_wake_by_ref(data: *const ()) {
     let ctx = unsafe { &*(data as *const WakerContext) };
     ctx.wake_up();
